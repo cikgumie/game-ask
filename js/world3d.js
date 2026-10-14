@@ -374,14 +374,13 @@ function create(options){
    npcs[islandIndex].rotation.y=Math.atan2(-dx,-dz);
   }
 
-  // Titik tumpu tengah antara Player dan NPC/Bos, diimbangi sedikit ke bawah
-  // supaya kedua-dua watak jelas kelihatan di bahagian atas skrin (di atas kad dialog)
+  // Titik tumpu tengah antara Player dan NPC/Bos
   const midX=(heroPos.x+targetPos.x)*0.5;
-  const midY=Math.max(heroPos.y,targetPos.y)-0.45;
+  const midY=(heroPos.y+targetPos.y)*0.5+0.15;
   const midZ=(heroPos.z+targetPos.z)*0.5;
 
   targetLook.set(midX,midY,midZ);
-  targetZoom=2.8; // Zum sinematik dekat (Player vs NPC / Bos)
+  targetZoom=2.6; // Zum sinematik dekat (Player vs NPC / Bos)
  }
  function move(dx,dy){const vertical=pitch<0?-dy:dy;return {dx:dx*Math.cos(yaw)+vertical*Math.sin(yaw),dy:-dx*Math.sin(yaw)+vertical*Math.cos(yaw)};}
  function destination(clientX,clientY){
