@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142d43">
+  <title>Misi Nusa Logika 3D · ASK Tingkatan 1</title>
+  <link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+  <main id="gameFrame" class="game-frame" aria-label="Permainan Misi Nusa Logika">
+    <section class="world-stage" aria-label="Dunia permainan">
+      <div class="map-wrap">
+        <canvas id="scene3d" class="scene3d" tabindex="0" role="img" aria-label="Pulau terapung Nusa Logika. Seret untuk memutar kamera. Cubit dua jari untuk zum. Klik pulau untuk bergerak ke sana sebelum membuka misi." style="visibility:hidden;pointer-events:none"></canvas>
+      </div>
+
+      <div id="journeyStatus" class="journey-status" role="status" hidden>
+        <span id="journeyText"></span>
+        <div class="journey-bar"><i id="journeyFill"></i></div>
+      </div>
+
+      <div class="game-hud">
+        <div class="game-brand">
+          <b>NUSA LOGIKA 3D</b>
+          <small>ASK TINGKATAN 1 · PEMIKIRAN KOMPUTASIONAL</small>
+          <span class="live" id="viewStatus">Memuatkan dunia 3D</span>
+        </div>
+        <div class="hud-actions">
+          <span class="hud-crystal" id="hudCrystal">◇ 0 / 4</span>
+          <button id="menuToggle" class="menu-toggle" aria-controls="sidePanel" aria-expanded="false">☰ Menu</button>
+        </div>
+      </div>
+
+      <div class="map-help">
+        <span>WASD dalam pulau · Klik pulau untuk berpindah · Seret untuk putar</span>
+        <button id="interactBtn" class="interact">Berinteraksi [E]</button>
+        <div class="dpad" aria-label="Kawalan pergerakan">
+          <button data-dir="left" aria-label="Bergerak kiri">←</button>
+          <button data-dir="up" aria-label="Bergerak atas">↑</button>
+          <button data-dir="down" aria-label="Bergerak bawah">↓</button>
+          <button data-dir="right" aria-label="Bergerak kanan">→</button>
+        </div>
+      </div>
+    </section>
+
+    <button id="drawerBackdrop" class="drawer-scrim" hidden aria-label="Sembunyikan menu"></button>
+
+    <aside id="sidePanel" class="game-drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" hidden>
+      <div class="drawer-title">
+        <h2 id="drawerTitle">Menu pengembara</h2>
+        <button id="menuClose" aria-label="Sembunyikan menu">Tutup ×</button>
+      </div>
+
+      <div class="player">
+        <div class="avatar" id="avatarBadge">P</div>
+        <div>
+          <b id="playerName">Pengembara baharu</b>
+          <div class="xpbar"><span id="xpFill" style="width:0%"></span></div>
+          <small id="playerStats">Tahap 1 · 0 XP</small>
+        </div>
+        <span id="crystalCount" class="pill">0 / 4</span>
+      </div>
+
+      <nav class="drawer-nav" aria-label="Pilihan permainan">
+        <button id="notesBtn">Buku ilmu</button>
+        <button id="soundBtn" aria-pressed="true">Bunyi: Buka</button>
+        <button id="helpBtn">Panduan</button>
+        <button id="fullScreenBtn" aria-pressed="false">Skrin penuh</button>
+      </nav>
+
+      <div class="side-label">
+        <span>JURNAL MISI</span>
+        <span id="questCount">0 / 5</span>
+      </div>
+      <div id="quests"></div>
+
+      <div class="mentor">
+        <b>PESANAN PENJAGA ILMU</b>
+        <p id="mentorText">Mulakan di Kampung Leraian.</p>
+      </div>
+
+      <div class="side-label"><span>KAWALAN KAMERA</span></div>
+      <div class="camera-bar" aria-label="Kawalan kamera">
+        <span>Seret untuk putar · Cubit / tatal untuk zum</span>
+        <button id="rotateLeft" aria-label="Putar kamera kiri">↶</button>
+        <button id="rotateRight" aria-label="Putar kamera kanan">↷</button>
+        <button id="tiltUp" aria-label="Sudut lebih tinggi">↑</button>
+        <button id="tiltDown" aria-label="Sudut lebih rendah">↓</button>
+        <button id="zoomIn" aria-label="Zum masuk">+</button>
+        <button id="zoomOut" aria-label="Zum keluar">−</button>
+        <button id="resetCamera">Pusat</button>
+      </div>
+
+      <div class="drawer-mission">
+        <b id="missionLabel">Kumpulkan empat kristal ilmu</b>
+        <p id="missionDesc">Bantu penduduk. Selamatkan dunia.</p>
+      </div>
+
+      <div class="map-footer">
+        <span><i class="dot"></i>Misi tersedia</span>
+        <span><i class="dot done"></i>Selesai</span>
+        <span><i class="dot lock"></i>Terkunci</span>
+        <span id="saveStatus">Kemajuan disimpan pada pelayar ini</span>
+      </div>
+
+      <footer>
+        CikguMie · Bahasa Melayu Malaysia<br>
+        SK 1.1 · SP 1.1.1–1.1.5 · <a href="https://anyflip.com/zcbwi/ryzx/basic" target="_blank" rel="noopener">Rujukan DSKP</a>
+      </footer>
+    </aside>
+
+    <section id="webglError" class="webgl-error" hidden role="alert" aria-labelledby="webglTitle">
+      <h2 id="webglTitle">Dunia 3D belum dapat dibuka</h2>
+      <p>Permainan ini menggunakan Three.js dan WebGL 2. Buka fail yang dimuat turun menggunakan Chrome atau Edge terkini.</p>
+      <p>Jika masalah berterusan, hidupkan tetapan pecutan grafik dalam pelayar dan mulakan semula pelayar.</p>
+      <details>
+        <summary>Maklumat ralat</summary>
+        <pre id="webglReason"></pre>
+      </details>
+      <button id="retry3D" class="primary">Cuba semula</button>
+    </section>
+
+    <div class="overlay" id="overlay" hidden>
+      <section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle"></section>
+    </div>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </main>
+
+  <!-- Skrip Permainan Terkandung Secara Bersusun -->
+  <script src="js/lib/three.min.js"></script>
+  <script src="js/data.js?v=5"></script>
+  <script src="js/audio.js?v=5"></script>
+  <script src="js/world3d.js?v=5"></script>
+  <script src="js/game.js?v=5"></script>
+</body>
+</html>
