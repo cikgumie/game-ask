@@ -1,28 +1,78 @@
 /**
  * Misi Nusa Logika 3D — Logik Utama & Pengawal Permainan
+ * Menyokong Bab 1 (Pemikiran Komputasional) & Bab 2 (Perwakilan Data),
+ * Puzzle Padanan Berpasangan (Matching Pairs), Navigasi 10 Pulau & 2 Bos Pertarungan.
  */
 'use strict';
-const $=id=>document.getElementById(id), KEY='nusa-logika-v1';
-function fresh(){return {version:1,name:'',completed:[false,false,false,false],steps:[0,0,0,0],bossStep:0,bossDone:false,xp:0,attempts:0,firstCorrect:0,solved:0,assisted:0,hero:{x:550,y:545},startedAt:null};}
-let state=fresh(),storageOK=true;
+
+const $=id=>document.getElementById(id), KEY='nusa-logika-v2';
+
+function fresh(){
+ return {
+  version: 2,
+  name: '',
+  completed: Array(regions.length).fill(false),
+  steps: Array(regions.length).fill(0),
+  bossStep: 0,
+  bossDone: false,
+  cyberBossStep: 0,
+  cyberBossDone: false,
+  xp: 0,
+  attempts: 0,
+  firstCorrect: 0,
+  solved: 0,
+  assisted: 0,
+  hero: {x: 550, y: 545},
+  startedAt: null
+ };
+}
+
+let state=fresh(), storageOK=true;
 try{
- const raw=JSON.parse(localStorage.getItem(KEY));
- if(raw&&raw.version===1&&Array.isArray(raw.steps)&&raw.steps.length===4&&raw.steps.every(n=>Number.isInteger(n)&&n>=0&&n<=3)&&typeof raw.name==='string'&&raw.name.length<=24&&Number.isFinite(raw.xp)&&Number.isInteger(raw.bossStep)&&raw.bossStep>=0&&raw.bossStep<=4){
-  state={...fresh(),...raw};state.completed=state.steps.map(n=>n===3);state.bossDone=state.bossStep===4;
-  state.hero={x:550,y:545};
+ const raw=JSON.parse(localStorage.getItem(KEY)) || JSON.parse(localStorage.getItem('nusa-logika-v1'));
+ if(raw && typeof raw.name === 'string'){
+  state = { ...fresh(), ...raw, version: 2 };
+  if(!Array.isArray(state.completed)) state.completed = [];
+  if(!Array.isArray(state.steps)) state.steps = [];
+  while(state.completed.length < regions.length) state.completed.push(false);
+  while(state.steps.length < regions.length) state.steps.push(0);
+  if(state.bossStep === undefined) state.bossStep = 0;
+  if(state.cyberBossStep === undefined) state.cyberBossStep = 0;
+  if(!state.hero || !Number.isFinite(state.hero.x)) state.hero = {x: 550, y: 545};
  }
 }catch(e){storageOK=false;}
 
-let menuOpen=false,modalOpen=false,session=null,selected=[],order=[],checked=false,tries=0,hinted=false,lastFocus=null,target=null,keys=new Set(),particles=[],phase=0;
-let world3D=null,use3D=false;
-let currentIsland=5,travel=null,heroLift=0;
+let menuOpen=false, modalOpen=false, session=null, selected=[], order=[], checked=false, tries=0, hinted=false;
+let lastFocus=null, target=null, keys=new Set(), phase=0;
+let world3D=null, use3D=false;
+let currentIsland=5, travel=null, heroLift=0;
 let cachedBridgePolylines=[];
 
-function unlocked(i){return i===0||state.completed[i-1];}
-function bridgeUnlocked(bridgeIndex){
- if(bridgeIndex===4)return true; // Pulau Permulaan -> Kampung Leraian sentiasa terbuka
- if(bridgeIndex===3)return state.completed.every(Boolean); // Ke Istana perlu 4 kristal
- return state.completed[bridgeIndex]; // Jambatan ke kawasan seterusnya dibuka selepas selesai
+// Keadaan Puzzle Padanan Berpasangan (Matching Pairs)
+let matchState = { selectedLeft: null, pairs: {}, rightOrder: [] };
+
+// Pemetaan Indeks Pulau ke Indeks Kawasan Kurikulum
+const islandToRegion = { 0:0, 1:1, 2:2, 3:3, 6:4, 7:5, 8:6 };
+const regionToIsland = { 0:0, 1:1, 2:2, 3:3, 4:6, 5:7, 6:8 };
+
+function unlocked(i){
+ if(i===0) return true;
+ if(i<=3) return state.completed[i-1];
+ if(i===4) return state.bossDone; // Pulau Bit & Perduaan dibuka selepas Raja Kabut
+ if(i<=6) return state.completed[i-1];
+ return false;
+}
+
+function bridgeUnlocked(bIdx){
+ if(bIdx===4) return true; // 5 -> 0 (Permulaan -> Kampung)
+ if(bIdx<=2) return state.completed[bIdx]; // Jambatan dalaman Bab 1
+ if(bIdx===3) return state.completed.slice(0,4).every(Boolean); // Menara -> Istana Raja Kabut
+ if(bIdx===5) return state.bossDone; // Menara -> Pulau Bit (Pintu Gerbang Dimensi Alam 2)
+ if(bIdx===6) return state.completed[4]; // Pulau Bit -> Lembah Ukuran Data
+ if(bIdx===7) return state.completed[5]; // Lembah Ukuran -> Teluk Imej & Audio
+ if(bIdx===8) return state.completed.slice(4,7).every(Boolean); // Teluk Imej -> Teras CyberByte
+ if(bIdx===9) return state.cyberBossDone; // Teras CyberByte -> Pulau Permulaan
+ return false;
 }
 
 // Logik Jarak & Pergerakan Melintasi Jambatan dan Pulau
@@ -45,23 +95,21 @@ function warnLockedBridge(bridgeIndex){
  if(now-lastBlockWarn>2400){
   lastBlockWarn=now;
   const b=bridgeLinks[bridgeIndex];
-  const targetName=b.name;
-  const reqName=regions[b.from]?.name||'sebelumnya';
-  toast('Jambatan ke '+targetName+' dikunci kuasa kabut! Selesaikan misi '+reqName+' dahulu.');
+  toast('Jambatan ke '+b.name+' dikunci tenaga kuasa! Selesaikan misi sebelumnya.');
   sfx('wrong');
  }
 }
 
 function isPointWalkable(p){
- // 1. Periksa sama ada berada di atas mana-mana pulau
+ // 1. Periksa pulau
  for(let i=0;i<islandAreas.length;i++){
   const a=islandAreas[i],d=Math.hypot(p.x-a.x,p.y-a.y);
   if(d<=a.r*20-4)return {ok:true,islandIndex:i};
  }
- // 2. Periksa sama ada berada di atas mana-mana jambatan
+ // 2. Periksa jambatan
  for(let b=0;b<bridgeLinks.length;b++){
   const info=distToBridge(p,b);
-  if(info.d<=24){ // lebar boleh dilalui 24 piksel di kiri/kanan garisan tengah
+  if(info.d<=26){
    const open=bridgeUnlocked(b);
    if(open||info.t<=.42){
     return {ok:true,bridgeIndex:b,t:info.t};
@@ -75,19 +123,20 @@ function isPointWalkable(p){
 
 function updateZone(check){
  if(check.islandIndex!==undefined&&check.islandIndex!==currentIsland){
-  const prev=currentIsland;
   currentIsland=check.islandIndex;
   sfx('select');
-  if(currentIsland<4){
-   if(!state.completed[currentIsland]){
-    toast('Tiba di '+regions[currentIsland].name+'. Tekan [E] untuk menemui '+regions[currentIsland].npc+'.');
-   }else{
-    toast('Tiba di '+regions[currentIsland].name+'.');
-   }
-  }else if(currentIsland===4){
-   toast('Tiba di Istana Raja Kabut. Bersedia untuk pertarungan akhir!');
+  if(currentIsland===4){
+   toast('Tiba di Istana Raja Kabut. Pertarungan Akhir Bab 1!');
   }else if(currentIsland===5){
    toast('Pulau Permulaan.');
+  }else if(currentIsland===9){
+   toast('Tiba di Teras CyberByte. Pertarungan Akhir Bab 2!');
+  }else{
+   const rIdx=islandToRegion[currentIsland];
+   if(rIdx!==undefined){
+    const r=regions[rIdx];
+    toast('Tiba di '+r.name+'. '+(state.completed[rIdx]?'Kawasan dipulihkan.':'Tekan [E] untuk menemui '+r.npc+'.'));
+   }
   }
   update();
  }
@@ -95,22 +144,18 @@ function updateZone(check){
 
 function moveHero(pCur,dx,dy){
  const pTarget={x:pCur.x+dx,y:pCur.y+dy};
- // 1. Cuba laluan penuh
  const checkFull=isPointWalkable(pTarget);
  if(checkFull.ok){updateZone(checkFull);return pTarget;}
  if(checkFull.blockedBridge!==undefined)warnLockedBridge(checkFull.blockedBridge);
 
- // 2. Cuba gelongsor pada paksi X
  const pX={x:pTarget.x,y:pCur.y};
  const checkX=isPointWalkable(pX);
  if(checkX.ok){updateZone(checkX);return pX;}
 
- // 3. Cuba gelongsor pada paksi Y
  const pY={x:pCur.x,y:pTarget.y};
  const checkY=isPointWalkable(pY);
  if(checkY.ok){updateZone(checkY);return pY;}
 
- // 4. Jika kedua-duanya terhalang, kekal di posisi semasa
  return pCur;
 }
 
@@ -127,88 +172,172 @@ function walkTo(p){
  if(!state.name){intro();return;}
  const i=islandAt(p);
  if(i<0){target=p;return;}
- if(i!==currentIsland){visit(i);return;}
+ if(i!==currentIsland){visitIsland(i);return;}
  target=p;sfx('select');
 }
 
 function startTravel(i){
  if(menuOpen)setDrawer(false,false);keys.clear();target=null;
- const a=islandAreas[i],to={x:a.x,y:a.y+(i===5?0:i===4?38:44)},from={...state.hero},distance=Math.hypot(to.x-from.x,to.y-from.y),cross=i!==currentIsland;
- if(distance<2){state.hero=to;currentIsland=i;if(i<5)showVisit(i);return;}
+ const a=islandAreas[i],to={x:a.x,y:a.y+(i===5?0:i===4||i===9?38:44)},from={...state.hero},distance=Math.hypot(to.x-from.x,to.y-from.y),cross=i!==currentIsland;
+ if(distance<2){state.hero=to;currentIsland=i;showVisit(i);return;}
  travel={from,to,fromIndex:currentIsland,index:i,elapsed:0,duration:Math.max(cross?1.35:.45,Math.min(3.2,distance/(cross?240:175))),lift:cross?Math.min(5,2.8+distance/250):0};target=to;
- $('journeyText').textContent='Menuju '+(i===5?'Pulau Permulaan':i===4?'Istana Raja Kabut':regions[i].name);$('journeyFill').style.width='0%';journeyUI();sfx('travel');
+ $('journeyText').textContent='Menuju '+islandAreas[i].name;$('journeyFill').style.width='0%';journeyUI();sfx('travel');
 }
 
 function advanceTravel(dt){
  const trip=travel;trip.elapsed=Math.min(trip.duration,trip.elapsed+dt);const t=trip.elapsed/trip.duration,u=t*t*(3-2*t);
  state.hero={x:trip.from.x+(trip.to.x-trip.from.x)*u,y:trip.from.y+(trip.to.y-trip.from.y)*u};heroLift=reduced?0:Math.sin(Math.PI*t)*trip.lift;$('journeyFill').style.width=(t*100)+'%';
- if(t>=1){currentIsland=trip.index;state.hero=trip.to;travel=null;heroLift=0;target=null;keys.clear();journeyUI();save();sfx('select');if(trip.index<5)showVisit(trip.index);}
+ if(t>=1){currentIsland=trip.index;state.hero=trip.to;travel=null;heroLift=0;target=null;keys.clear();journeyUI();save();sfx('select');showVisit(trip.index);}
 }
 
-const canvas=$('scene3d'),reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function setDrawer(open,withFocus=true){
+ menuOpen=open;
+ const d=$('drawer');d.classList.toggle('open',open);$('menuToggle').setAttribute('aria-expanded',String(open));$('menuToggle').setAttribute('aria-label',open?'Tutup menu':'Buka menu pengembara');
+ if(open){cancelTravel();if(withFocus)$('closeDrawer').focus();}
+ else if(withFocus&&lastFocus&&lastFocus.isConnected)lastFocus.focus();
+}
+
+function drawerKeys(e){
+ if(e.key==='Escape'){setDrawer(false);return;}
+ if(e.key==='Tab'){
+  const f=[...$('drawer').querySelectorAll('button')].filter(el=>el.offsetParent!==null);
+  if(!f.length)return;
+  const first=f[0],last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+ }
+}
+
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){storageOK=false;}$('saveStatus').textContent=storageOK?'Kemajuan disimpan pada pelayar ini':'Simpanan pelayar tidak tersedia; kekalkan tab ini';}
 
 function open(html,wide=false){cancelTravel();lastFocus=menuOpen?$('menuToggle'):document.activeElement;if(menuOpen)setDrawer(false,false);modalOpen=true;keys.clear();target=null;$('dialog').className='dialog'+(wide?' wide':'');$('dialog').innerHTML='<button class="close" id="closeModal" aria-label="Tutup">×</button>'+html;$('overlay').hidden=false;$('closeModal').onclick=close;setTimeout(()=>{const f=$('dialog').querySelector('input,button.primary,button.option,button');if(f)f.focus();},0);}
-function close(){modalOpen=false;session=null;$('overlay').hidden=true;if(world3D)world3D.focusInteraction(null);if(lastFocus&&lastFocus.isConnected)lastFocus.focus();}
+function close(){modalOpen=false;session=null;matchState={selectedLeft:null,pairs:{},rightOrder:[]};$('overlay').hidden=true;if(world3D)world3D.focusInteraction(null);if(lastFocus&&lastFocus.isConnected)lastFocus.focus();}
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,3200);}
 
-
-// Jejak langkah bunyi
-// lastStep dan stepSide diuruskan oleh audio.js
-
 function update(){
- let c=state.completed.filter(Boolean).length;
+ const c1=state.completed.slice(0,4).filter(Boolean).length;
+ const c2=state.completed.slice(4,7).filter(Boolean).length;
+ const totalCrystals=c1+c2;
+ const totalQuestsDone=totalCrystals+(state.bossDone?1:0)+(state.cyberBossDone?1:0);
+
  $('playerName').textContent=state.name||'Pengembara baharu';$('avatarBadge').textContent=(state.name||'P')[0].toUpperCase();
  $('playerStats').textContent='Tahap '+(1+Math.floor(state.xp/150))+' · '+state.xp+' XP';
- $('xpFill').style.width=(state.xp%150)/150*100+'%';$('crystalCount').textContent=c+' / 4';$('hudCrystal').textContent='◇ '+c+' / 4';$('questCount').textContent=c+(state.bossDone?1:0)+' / 5';
- $('quests').innerHTML=regions.map((r,i)=>`<button class="quest-card ${unlocked(i)&&!state.completed[i]?'active':''}" data-quest="${i}" style="--qbg:${r.bg};--qcolor:${r.color}" aria-label="${r.name}, ${state.completed[i]?'selesai':unlocked(i)?'tersedia':'belum dibuka'}"><div class="quest-icon">${state.completed[i]?'✓':i+1}</div><div><h3>${r.name}</h3><p>${r.tech}</p><small>${state.completed[i]?'Kristal diperoleh · Ulang kaji':unlocked(i)?state.steps[i]+' / 3 cabaran · Teroka kawasan':'Selesaikan kawasan sebelumnya'}</small></div></button>`).join('')+`<button class="quest-card boss-card" data-quest="4" style="--qbg:#2b4f64;--qcolor:#ffd266"><div class="quest-icon">♜</div><div><h3>Istana Raja Kabut</h3><p>Gabungkan empat teknik</p><small>${state.bossDone?'Dunia berjaya dipulihkan':c===4?'Pertarungan akhir tersedia':'Perlu empat kristal ilmu'}</small></div></button>`;
- $('quests').querySelectorAll('[data-quest]').forEach(b=>b.onclick=()=>visit(Number(b.dataset.quest)));
+ $('xpFill').style.width=(state.xp%150)/150*100+'%';
+ $('crystalCount').textContent=totalCrystals+' / 7';
+ $('hudCrystal').textContent='◇ '+totalCrystals+' / 7';
+ $('questCount').textContent=totalQuestsDone+' / 9';
+
+ let qHtml=`<div class="realm-header">✦ BAB 1: PEMIKIRAN KOMPUTASIONAL ✦</div>`;
+ qHtml+=regions.slice(0,4).map((r,i)=>`<button class="quest-card ${unlocked(i)&&!state.completed[i]?'active':''}" data-quest="reg-${i}" style="--qbg:${r.bg};--qcolor:${r.color}"><div class="quest-icon">${state.completed[i]?'✓':i+1}</div><div><h3>${r.name}</h3><p>${r.tech}</p><small>${state.completed[i]?'Kristal diperoleh · Ulang kaji':unlocked(i)?state.steps[i]+' / 3 cabaran · Teroka kawasan':'Selesaikan kawasan sebelumnya'}</small></div></button>`).join('');
+ qHtml+=`<button class="quest-card boss-card" data-quest="boss-1" style="--qbg:#2b4f64;--qcolor:#ffd266"><div class="quest-icon">♜</div><div><h3>Istana Raja Kabut</h3><p>Bos Akhir Bab 1</p><small>${state.bossDone?'Dunia Bab 1 Dipulihkan':c1===4?'Pertarungan akhir sedia':'Perlu 4 kristal Bab 1'}</small></div></button>`;
+
+ qHtml+=`<div class="realm-header">✦ BAB 2: PERWAKILAN DATA ✦</div>`;
+ qHtml+=regions.slice(4,7).map((r,idx)=>{
+  const i=idx+4;
+  return `<button class="quest-card ${unlocked(i)&&!state.completed[i]?'active':''}" data-quest="reg-${i}" style="--qbg:${r.bg};--qcolor:${r.color}"><div class="quest-icon">${state.completed[i]?'✓':i+1}</div><div><h3>${r.name}</h3><p>${r.tech}</p><small>${state.completed[i]?'Kristal diperoleh · Ulang kaji':unlocked(i)?state.steps[i]+' / 3 cabaran · Teroka kawasan':'Kalahkan Raja Kabut dahulu'}</small></div></button>`;
+ }).join('');
+ qHtml+=`<button class="quest-card boss-card" data-quest="boss-2" style="--qbg:#1a324b;--qcolor:#00e5ff"><div class="quest-icon">⚡</div><div><h3>Teras CyberByte</h3><p>Bos Akhir Bab 2</p><small>${state.cyberBossDone?'Teras Data Bercahaya':c2===3?'Pertarungan CyberByte sedia':'Perlu 3 kristal Bab 2'}</small></div></button>`;
+
+ $('quests').innerHTML=qHtml;
+ $('quests').querySelectorAll('[data-quest]').forEach(b=>{
+  b.onclick=()=>{
+   const q=b.dataset.quest;
+   if(q.startsWith('reg-')) visitRegion(Number(q.split('-')[1]));
+   else if(q==='boss-1') visitIsland(4);
+   else if(q==='boss-2') visitIsland(9);
+  };
+ });
+
  const next=regions.find((r,i)=>!state.completed[i]);
- $('mentorText').textContent=next?next.intro:state.bossDone?'Tahniah! Gunakan empat teknik ini untuk menyelesaikan masalah harian.':'Empat kristal sudah bersatu. Pergi ke istana dan gunakan semua teknik untuk menghapuskan kabut.';
- $('missionLabel').textContent=state.bossDone?'Nusa Logika kembali bercahaya':next?'Misi seterusnya: '+next.name:'Hadapi Raja Kabut';
- $('missionDesc').textContent=state.bossDone?'Buka rumusan untuk melihat pencapaian dan sijil pengembara.':next?next.tech+' · Tiga cabaran menanti anda.':'Empat perisai. Empat teknik. Satu penyelesaian.';
+ $('mentorText').textContent=next?next.intro:state.cyberBossDone?'Tahniah! Semua silibus ASK Tingkatan 1 berjaya dikuasai dengan cemerlang!':'Hadapi cabaran bos untuk melengkapkan pengembaraan nusa.';
+ $('missionLabel').textContent=state.cyberBossDone?'Nusa Logika & Alam Data Dipulihkan!':next?'Misi: '+next.name:'Pertarungan Bos';
+ $('missionDesc').textContent=next?next.tech+' · Selesaikan cabaran & puzzle padanan.':'Buka rumusan untuk mencetak sijil pengembara.';
  save();
 }
 
 function intro(){
  if(world3D)world3D.focusInteraction(null);
- open(`<span class="eyebrow">SELAMAT DATANG, PENGEMBARA</span><h2 id="modalTitle">Cahaya dunia semakin pudar.</h2><p>Raja Kabut mengaburkan Nusa Logika. Bantu empat penjaga ilmu, kumpulkan kristal dan pulihkan dunia menggunakan pemikiran komputasional.</p><div class="intro-art"><i class="crystal" style="--c:#f7b556"></i><i class="crystal" style="--c:#45c999"></i><i class="crystal" style="--c:#54b8f4"></i><i class="crystal" style="--c:#b08ceb"></i></div><label class="name-label" for="nameInput">Nama pengembara</label><input id="nameInput" maxlength="24" placeholder="Masukkan nama atau nama samaran" value="${esc(state.name)}" autocomplete="off"><p style="font-size:11px">Gunakan <b>WASD</b> atau kekunci anak panah untuk bergerak di pulau dan <b>menyeberangi jambatan</b>. Setiap pulau kini lebih luas untuk diteroka! Anda juga boleh klik pulau atau kad misi untuk berpindah pantas. Anggaran masa: 20–30 minit.</p><div class="actions"><button class="primary" id="startBtn">Mulakan pengembaraan →</button></div>`);
+ open(`<span class="eyebrow">SELAMAT DATANG, PENGEMBARA</span><h2 id="modalTitle">Nusa Logika Menanti Anda!</h2><p>Dunia terbahagi kepada dua alam agung: <b>Bab 1 (Pemikiran Komputasional)</b> dan <b>Bab 2 (Perwakilan Data)</b>. Terokai kepulauan 3D, selesaikan kuiz & puzzle padanan, kumpulkan 7 kristal ilmu dan kalahkan Raja Kabut serta CyberByte!</p><div class="intro-art"><i class="crystal" style="--c:#f7b556"></i><i class="crystal" style="--c:#45c999"></i><i class="crystal" style="--c:#00d2ee"></i><i class="crystal" style="--c:#e91e63"></i></div><label class="name-label" for="nameInput">Nama pengembara</label><input id="nameInput" maxlength="24" placeholder="Masukkan nama murid / pengembara" value="${esc(state.name)}" autocomplete="off"><p style="font-size:11px">Gunakan <b>WASD</b> atau kekunci anak panah untuk bergerak di pulau dan <b>menyeberangi jambatan dimensi</b>. Anggaran masa: 20–30 minit.</p><div class="actions"><button class="primary" id="startBtn">Mulakan pengembaraan →</button></div>`);
  $('startBtn').onclick=()=>{state.name=$('nameInput').value.trim()||'Pengembara';state.startedAt=state.startedAt||Date.now();close();update();sfx('start');toast('Lalui jambatan hadapan menuju Kampung Leraian dan temui Tok Bina.');};
  $('nameInput').onkeydown=e=>{if(e.key==='Enter')$('startBtn').click();};
 }
 
-function visit(i){
- if(!Number.isInteger(i)||i<0||i>5)return;if(travel)return;if(!state.name){intro();return;}
- if(i<4&&!unlocked(i)){toast('Selesaikan '+regions[i-1].name+' dahulu.');return;}
- if(i===4&&!state.completed.every(Boolean)){toast('Kumpulkan empat kristal sebelum memasuki istana.');return;}
+function visitRegion(rIdx){
+ if(travel||!state.name){if(!state.name)intro();return;}
+ if(!unlocked(rIdx)){toast('Selesaikan kawasan sebelumnya dahulu.');return;}
+ const targetIsl=regionToIsland[rIdx];
+ if(targetIsl!==undefined)startTravel(targetIsl);
+}
+
+function visitIsland(i){
+ if(!Number.isInteger(i)||i<0||i>=islandAreas.length)return;
+ if(travel)return;if(!state.name){intro();return;}
+ if(i===4&&!state.completed.slice(0,4).every(Boolean)){toast('Kumpulkan empat kristal Bab 1 sebelum memasuki istana.');return;}
+ if(i===9&&!state.completed.slice(4,7).every(Boolean)){toast('Kumpulkan tiga kristal Bab 2 sebelum menghadapi CyberByte.');return;}
+ const rIdx=islandToRegion[i];
+ if(rIdx!==undefined&&!unlocked(rIdx)){toast('Selesaikan kawasan sebelumnya dahulu.');return;}
  startTravel(i);
 }
 
 function showVisit(i){
  if(world3D)world3D.focusInteraction(i);
- if(i===4){
-  if(state.bossDone){if(world3D)world3D.focusInteraction(null);result();return;}
-  open(`<span class="eyebrow">PERTARUNGAN AKHIR</span><h2 id="modalTitle">Raja Kabut menanti anda.</h2><p>Gunakan empat teknik untuk mengurus festival sekolah. Setiap cabaran yang diselesaikan memecahkan satu perisai kabut. Jawapan salah memberikan penerangan; anda boleh terus mencuba.</p><div class="task-art">♜ &nbsp; EMPAT PERISAI KABUT</div><div class="actions"><button class="primary" id="beginBtn">Mulakan pertarungan</button></div>`);
-  $('beginBtn').onclick=()=>begin(4);return;
+ if(i===4){ // Bos 1: Raja Kabut
+  if(state.bossDone){open(`<span class="eyebrow">ISTANA RAJA KABUT</span><h2 id="modalTitle">Raja Kabut Berjaya Dikalahkan!</h2><p>Empat perisai kabut telah dimusnahkan. Pintu gerbang dimensi ke <b>Alam 2: Perwakilan Data</b> di Menara Pengitlakan kini terbuka!</p><div class="actions"><button class="primary" id="goToRealm2">Menuju Pulau Bit (Bab 2) →</button><button class="secondary" id="retMap">Kembali ke peta</button></div>`);$('goToRealm2').onclick=()=>visitIsland(6);$('retMap').onclick=close;return;}
+  open(`<span class="eyebrow">PERTARUNGAN AKHIR · BAB 1</span><h2 id="modalTitle">Raja Kabut menanti anda.</h2><p>Gunakan empat teknik pemikiran komputasional untuk mengurus festival sekolah. Setiap cabaran yang diselesaikan memecahkan satu perisai kabut.</p><div class="task-art">♜ &nbsp; EMPAT PERISAI KABUT</div><div class="actions"><button class="primary" id="beginBtn">Mulakan pertarungan</button></div>`);
+  $('beginBtn').onclick=()=>begin('boss1');return;
  }
- const r=regions[i];
- if(state.completed[i]){
-  open(`<span class="eyebrow">KRISTAL ${r.tech.toUpperCase()}</span><h2 id="modalTitle">${r.name} dipulihkan!</h2><p>${r.definition}</p><div class="feedback">Contoh kehidupan harian: ${r.example}</div><div class="actions"><button class="primary" id="reviewBtn">Buka buku ilmu</button><button class="secondary" id="returnBtn">Kembali ke peta</button></div>`);
+ if(i===9){ // Bos 2: CyberByte
+  if(state.cyberBossDone){result();return;}
+  open(`<span class="eyebrow">PERTARUNGAN AKHIR · BAB 2</span><h2 id="modalTitle">Teras CyberByte Bersedia!</h2><p>Buktikan penguasaan anda dalam Sistem Nombor Perduaan, Ukuran Storan Data, dan Multimedia Digital untuk memulihkan Teras Alam Data.</p><div class="task-art">⚡ &nbsp; TERAS KOD CYBERBYTE</div><div class="actions"><button class="primary" id="beginBtn">Mulakan Pertarungan Siber</button></div>`);
+  $('beginBtn').onclick=()=>begin('boss2');return;
+ }
+ if(i===5){ // Pulau Permulaan
+  open(`<span class="eyebrow">PULAU PERMULAAN</span><h2 id="modalTitle">Titik Mula Nusa Logika</h2><p>Dari sini, anda boleh menyeberangi jambatan ke Kampung Leraian atau menggunakan jalan pintas portal ke pulau-pulau yang telah dibuka.</p><div class="actions"><button class="primary" id="retMap">Teruskan Meneroka</button></div>`);
+  $('retMap').onclick=close;return;
+ }
+
+ const rIdx=islandToRegion[i];
+ if(rIdx===undefined)return;
+ const r=regions[rIdx];
+ if(state.completed[rIdx]){
+  open(`<span class="eyebrow">KRISTAL ${r.tech.toUpperCase()}</span><h2 id="modalTitle">${r.name} Dipulihkan!</h2><p>${r.definition}</p><div class="feedback">Contoh kehidupan harian: ${r.example}</div><div class="actions"><button class="primary" id="reviewBtn">Buka buku ilmu</button><button class="secondary" id="returnBtn">Kembali ke peta</button></div>`);
   $('reviewBtn').onclick=notes;$('returnBtn').onclick=close;return;
  }
- open(`<span class="eyebrow">PENJAGA ILMU · ${r.npc.toUpperCase()}</span><h2 id="modalTitle">${r.name}</h2><p>${r.intro}</p><div class="feedback"><b>${r.tech}</b><br>${r.definition}</div><p>Selesaikan tiga cabaran untuk memperoleh kristal ${r.tech.toLowerCase()}.</p><div class="actions"><button class="primary" id="beginBtn">${state.steps[i]?'Sambung':'Terima'} misi →</button></div>`);
- $('beginBtn').onclick=()=>begin(i);
+ open(`<span class="eyebrow">${r.realmTitle.toUpperCase()} · ${r.npc.toUpperCase()}</span><h2 id="modalTitle">${r.name}</h2><p>${r.intro}</p><div class="feedback"><b>${r.tech}</b><br>${r.definition}</div><p>Selesaikan tiga cabaran & puzzle untuk memperoleh kristal ilmu ${r.tech.toLowerCase()}.</p><div class="actions"><button class="primary" id="beginBtn">${state.steps[rIdx]?'Sambung':'Terima'} misi →</button></div>`);
+ $('beginBtn').onclick=()=>begin(rIdx);
 }
 
-function currentTask(){return session===4?bossTasks[state.bossStep]:regions[session].tasks[state.steps[session]];}
-function begin(i){session=i;sfx('mission');task();}
+function currentTask(){
+ if(session==='boss1'||session===4) return bossTasks[state.bossStep];
+ if(session==='boss2'||session===9) return cyberBossTasks[state.cyberBossStep];
+ return regions[session].tasks[state.steps[session]];
+}
+
+function begin(id){session=id;sfx('mission');task();}
+
 function task(){
- const keep=session,t=currentTask(),step=session===4?state.bossStep:state.steps[session];
- if(world3D&&session!==null)world3D.focusInteraction(session);
- selected=[];order=t.options.map((_,i)=>i);checked=false;tries=0;hinted=false;
- const heading=session===4?'Raja Kabut':regions[session].tech;
- open(`<div class="challenge-top"><span class="eyebrow">${heading.toUpperCase()}</span><span class="pill">Cabaran ${step+1} / ${session===4?4:3}</span></div><h2 id="modalTitle">${t.title}</h2>${session===4?`<p>Perisai kabut: ${100-step*25}%</p><div class="boss-health"><span style="width:${100-step*25}%"></span></div>`:''}<p>${t.text}</p>${t.art?`<div class="task-art">${t.art}</div>`:''}<div id="answers" class="options"></div><div class="feedback" id="feedback" role="status" hidden></div><div id="hintArea" class="hint"></div><div class="actions"><button class="primary" id="checkBtn">Semak jawapan</button><button class="secondary" id="hintBtn">Petunjuk</button><button class="primary" id="nextBtn" hidden>Teruskan →</button></div>`);
+ const keep=session,t=currentTask();
+ const isBoss1=session==='boss1'||session===4;
+ const isBoss2=session==='boss2'||session===9;
+ const step=isBoss1?state.bossStep:isBoss2?state.cyberBossStep:state.steps[session];
+ const maxStep=isBoss1||isBoss2?4:3;
+
+ const targetIsland=isBoss1?4:isBoss2?9:regionToIsland[session];
+ if(world3D) world3D.focusInteraction(targetIsland);
+
+ selected=[];checked=false;tries=0;hinted=false;
+ order=t.options?t.options.map((_,i)=>i):[];
+
+ if(t.type==='match'){
+  matchState={
+   selectedLeft: null,
+   pairs: {},
+   rightOrder: [...Array(t.pairs.length).keys()].sort(()=>Math.random()-.5)
+  };
+ }
+
+ const heading=isBoss1?'Raja Kabut':isBoss2?'CyberByte':regions[session].tech;
+ open(`<div class="challenge-top"><span class="eyebrow">${heading.toUpperCase()}</span><span class="pill">Cabaran ${step+1} / ${maxStep}</span></div><h2 id="modalTitle">${t.title}</h2>${isBoss1?`<p>Perisai kabut: ${100-step*25}%</p><div class="boss-health"><span style="width:${100-step*25}%"></span></div>`:isBoss2?`<p>Integriti teras data: ${100-step*25}%</p><div class="boss-health"><span style="width:${100-step*25}%"></span></div>`:''}<p>${t.text}</p>${t.art?`<div class="task-art">${t.art}</div>`:''}<div id="answers" class="options"></div><div class="feedback" id="feedback" role="status" hidden></div><div id="hintArea" class="hint"></div><div class="actions"><button class="primary" id="checkBtn">Semak jawapan</button><button class="secondary" id="hintBtn">Petunjuk</button><button class="primary" id="nextBtn" hidden>Teruskan →</button></div>`);
  session=keep;renderAnswers();
  $('checkBtn').onclick=check;$('hintBtn').onclick=()=>{hinted=true;$('hintArea').textContent=t.hint;$('hintBtn').disabled=true;};$('nextBtn').onclick=advance;
 }
@@ -216,10 +345,81 @@ function task(){
 function renderAnswers(){
  const t=currentTask();
  if(t.type==='order'){
-  $('answers').innerHTML=order.map((v,i)=>`<div class="order-row"><b>${i+1}.</b><span>${esc(t.options[v])}</span><button data-move="${i},-1" ${i===0||checked?'disabled':''} aria-label="Naikkan ${esc(t.options[v])}">↑</button><button data-move="${i},1" ${i===order.length-1||checked?'disabled':''} aria-label="Turunkan ${esc(t.options[v])}">↓</button></div>`).join('');
+  $('answers').innerHTML=order.map((v,i)=>`<div class="order-row"><b>${i+1}.</b><span>${esc(t.options[v])}</span><button data-move="${i},-1" ${i===0||checked?'disabled':''} aria-label="Naikkan">↑</button><button data-move="${i},1" ${i===order.length-1||checked?'disabled':''} aria-label="Turunkan">↓</button></div>`).join('');
   $('answers').querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>{const [i,d]=b.dataset.move.split(',').map(Number);[order[i],order[i+d]]=[order[i+d],order[i]];renderAnswers();});
   return;
  }
+ if(t.type==='match'){
+  const lefts=t.pairs.map(p=>p.left);
+  const rights=t.pairs.map(p=>p.right);
+  const rightOrder=matchState.rightOrder||[...Array(t.pairs.length).keys()];
+  const pairColors=['paired-0','paired-1','paired-2','paired-3'];
+
+  $('answers').innerHTML=`<div class="match-container">
+   <div class="match-info-bar">
+    <span><b>Arahan:</b> Klik kad kiri, kemudian klik padanannya di sebelah kanan.</span>
+    <button class="match-reset-btn" id="matchResetBtn" type="button" ${checked?'disabled':''}>Padankan Semula</button>
+   </div>
+   <div class="match-grid">
+    <div class="match-col">
+     <div class="match-col-header">Konsep / Istilah</div>
+     ${lefts.map((txt,lIdx)=>{
+      const isPaired=matchState.pairs[lIdx]!==undefined;
+      const pairNum=isPaired?Object.keys(matchState.pairs).indexOf(String(lIdx)):-1;
+      const colClass=pairNum>=0?pairColors[pairNum%4]:'';
+      const isSel=matchState.selectedLeft===lIdx;
+      return `<button type="button" class="match-card ${isSel?'active-select':''} ${isPaired?'paired '+colClass:''}" data-left="${lIdx}" ${checked?'disabled':''}>
+       <span>${esc(txt)}</span>
+       ${isPaired?`<span class="match-badge">Pasangan ${pairNum+1}</span>`:''}
+      </button>`;
+     }).join('')}
+    </div>
+    <div class="match-col">
+     <div class="match-col-header">Penerangan / Nilai</div>
+     ${rightOrder.map(rIdx=>{
+      const matchedLeft=Object.keys(matchState.pairs).find(lKey=>matchState.pairs[lKey]===rIdx);
+      const isPaired=matchedLeft!==undefined;
+      const pairNum=isPaired?Object.keys(matchState.pairs).indexOf(matchedLeft):-1;
+      const colClass=pairNum>=0?pairColors[pairNum%4]:'';
+      return `<button type="button" class="match-card ${isPaired?'paired '+colClass:''}" data-right="${rIdx}" ${checked?'disabled':''}>
+       <span>${esc(rights[rIdx])}</span>
+       ${isPaired?`<span class="match-badge">Pasangan ${pairNum+1}</span>`:''}
+      </button>`;
+     }).join('')}
+    </div>
+   </div>
+  </div>`;
+
+  $('matchResetBtn').onclick=()=>{
+   if(checked)return;
+   matchState.pairs={};matchState.selectedLeft=null;sfx('select');renderAnswers();
+  };
+  $('answers').querySelectorAll('[data-left]').forEach(btn=>{
+   btn.onclick=()=>{
+    if(checked)return;
+    const lIdx=Number(btn.dataset.left);
+    if(matchState.pairs[lIdx]!==undefined){delete matchState.pairs[lIdx];matchState.selectedLeft=lIdx;}
+    else{matchState.selectedLeft=matchState.selectedLeft===lIdx?null:lIdx;}
+    sfx('select');renderAnswers();
+   };
+  });
+  $('answers').querySelectorAll('[data-right]').forEach(btn=>{
+   btn.onclick=()=>{
+    if(checked)return;
+    const rIdx=Number(btn.dataset.right);
+    if(matchState.selectedLeft!==null){
+     for(const k in matchState.pairs){if(matchState.pairs[k]===rIdx)delete matchState.pairs[k];}
+     matchState.pairs[matchState.selectedLeft]=rIdx;
+     matchState.selectedLeft=null;
+     sfx('select');renderAnswers();
+    }else{
+     for(const k in matchState.pairs){if(matchState.pairs[k]===rIdx){delete matchState.pairs[k];sfx('select');renderAnswers();break;}}
+    }
+   };
+  });
+  return;
+ }
+
  $('answers').innerHTML=t.options.map((o,i)=>`<button class="option ${selected.includes(i)?'selected':''}" aria-pressed="${selected.includes(i)}" data-answer="${i}" ${checked?'disabled':''}><span class="letter">${t.type==='multi'?selected.includes(i)?'✓':'□':String.fromCharCode(65+i)}</span><span>${esc(o)}</span></button>`).join('');
  $('answers').querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.answer);if(t.type==='multi')selected=selected.includes(i)?selected.filter(x=>x!==i):[...selected,i];else selected=[i];renderAnswers();const f=$('answers').querySelector(`[data-answer="${i}"]`);if(f)f.focus();});
 }
@@ -227,65 +427,102 @@ function renderAnswers(){
 function correct(t,picked,arr){
  if(t.type==='order')return JSON.stringify(arr)===JSON.stringify(t.answer);
  if(t.type==='multi')return JSON.stringify([...picked].sort((a,b)=>a-b))===JSON.stringify([...t.answer].sort((a,b)=>a-b));
+ if(t.type==='match'){
+  if(Object.keys(matchState.pairs).length<t.pairs.length)return false;
+  for(let i=0;i<t.pairs.length;i++){
+   const pRight=matchState.pairs[i];
+   if(t.pairs[i].right!==t.pairs[pRight]?.right)return false;
+  }
+  return true;
+ }
  return picked[0]===t.answer;
 }
 
 function check(){
  if(checked||session===null)return;const t=currentTask();
- if(t.type!=='order'&&!selected.length){toast('Pilih jawapan terlebih dahulu.');return;}
+ if(t.type==='match'&&Object.keys(matchState.pairs).length<t.pairs.length){toast('Sila padankan kesemua '+t.pairs.length+' pasangan terlebih dahulu.');return;}
+ if(t.type!=='order'&&t.type!=='match'&&!selected.length){toast('Pilih jawapan terlebih dahulu.');return;}
+
  tries++;state.attempts++;const ok=correct(t,selected,order);
  $('feedback').hidden=false;$('feedback').className='feedback'+(ok?'':' bad');
  if(!ok){$('feedback').textContent='Belum tepat. '+t.hint+' Anda boleh ubah jawapan dan cuba lagi.';tone(false);save();return;}
+
  checked=true;state.solved++;if(tries===1&&!hinted)state.firstCorrect++;if(hinted)state.assisted++;
  const earned=tries===1&&!hinted?50:30;state.xp+=earned;
  $('feedback').textContent='Tepat! +'+earned+' XP. '+t.why;
  $('checkBtn').hidden=true;$('hintBtn').hidden=true;$('nextBtn').hidden=false;
  renderAnswers();
- const i=session;
- if(i===4)state.bossStep++;
- else{state.steps[i]++;if(state.steps[i]===3)state.completed[i]=true;}
- if(state.bossStep===4)state.bossDone=true;
+
+ if(session==='boss1'||session===4){
+  state.bossStep++;
+  if(state.bossStep===4)state.bossDone=true;
+ }else if(session==='boss2'||session===9){
+  state.cyberBossStep++;
+  if(state.cyberBossStep===4)state.cyberBossDone=true;
+ }else{
+  state.steps[session]++;
+  if(state.steps[session]===3)state.completed[session]=true;
+ }
+
  update();tone();$('nextBtn').focus();
 }
 
 function advance(){
- const i=session;
- if(i===4&&state.bossDone){burst(575,80);sfx('victory');if(world3D)world3D.focusInteraction(null);result();return;}
- if(i<4&&state.completed[i]){
-  const r=regions[i];burst(r.x,r.y);sfx('crystal');
-  open(`<span class="eyebrow">MISI SELESAI</span><h2 id="modalTitle">Kristal ${r.tech} diperoleh!</h2><div class="intro-art"><i class="crystal" style="--c:${r.color}"></i></div><p>${r.npc} mengucapkan terima kasih. Jambatan ke ${i===3?'Istana Raja Kabut':regions[i+1].name} kini dibuka!</p><div class="feedback">${r.example}</div><div class="actions"><button class="primary" id="continueMap">Lalui jambatan seterusnya →</button></div>`);
-  $('continueMap').onclick=()=>{close();};return;
+ const isBoss1=session==='boss1'||session===4;
+ const isBoss2=session==='boss2'||session===9;
+
+ if(isBoss1&&state.bossDone){
+  burst(575,80);sfx('victory');if(world3D)world3D.focusInteraction(null);
+  open(`<span class="eyebrow">KABUT DIMUSNAHKAN!</span><h2 id="modalTitle">Tahniah! Bab 1 Berjaya Diselesaikan.</h2><div class="intro-art"><i class="crystal" style="--c:#ffd266"></i><i class="crystal" style="--c:#54b8f4"></i><i class="crystal" style="--c:#45c999"></i><i class="crystal" style="--c:#b08ceb"></i></div><p>Raja Kabut telah berundur! Pintu gerbang dimensi ke <b>Alam 2: Perwakilan Data</b> kini terbuka luas. Melangkah ke hadapan untuk meneroka Pulau Bit & Perduaan!</p><div class="actions"><button class="primary" id="openAlam2Btn">Terokai Alam 2 (Perwakilan Data) →</button><button class="secondary" id="stayMapBtn">Kembali ke peta</button></div>`);
+  $('openAlam2Btn').onclick=()=>{close();visitIsland(6);};
+  $('stayMapBtn').onclick=close;
+  return;
+ }
+
+ if(isBoss2&&state.cyberBossDone){
+  burst(1620,680);sfx('victory');if(world3D)world3D.focusInteraction(null);
+  result();
+  return;
+ }
+
+ if(!isBoss1&&!isBoss2&&state.completed[session]){
+  const r=regions[session];burst(r.x,r.y);sfx('crystal');
+  const targetIsl=regionToIsland[session];
+  open(`<span class="eyebrow">MISI SELESAI</span><h2 id="modalTitle">Kristal ${r.tech} diperoleh!</h2><div class="intro-art"><i class="crystal" style="--c:${r.color}"></i></div><p>${r.npc} mengucapkan terima kasih. Jambatan tenaga seterusnya kini dibuka!</p><div class="feedback">${r.example}</div><div class="actions"><button class="primary" id="continueMap">Lalui jambatan seterusnya →</button></div>`);
+  $('continueMap').onclick=close;
+  return;
  }
  task();
 }
 
 function notes(){
  if(world3D)world3D.focusInteraction(null);
- open(`<span class="eyebrow">BUKU ILMU PENGEMBARA</span><h2 id="modalTitle">Empat teknik, satu pemikiran.</h2><p>Pemikiran komputasional ialah proses menyelesaikan masalah secara sistematik menggunakan konsep asas sains komputer. Manusia boleh melakukannya dengan atau tanpa bantuan komputer.</p><div class="note-grid">${regions.map(r=>`<article class="note"><h3 style="color:${r.color}">${r.tech}</h3><p>${r.definition}</p><p><b>Contoh</b><br>${r.example}</p><small>SP ${r.sp}</small></article>`).join('')}</div><div class="feedback">Pengecaman corak mencari persamaan dan perbezaan. Pengitlakan membina kaedah umum daripada persamaan itu untuk masalah sejenis.</div><div class="actions"><button class="primary" id="backBtn">Kembali ke pengembaraan</button></div>`,true);
+ open(`<span class="eyebrow">BUKU ILMU PENGEMBARA</span><h2 id="modalTitle">Koleksi Ilmu Sains Komputer</h2><p>Panduan rujukan lengkap bagi Asas Pemikiran Komputasional (Bab 1) dan Perwakilan Data (Bab 2) ASK Tingkatan 1.</p><div class="note-grid">${regions.map(r=>`<article class="note"><h3 style="color:${r.color}">${r.name} · ${r.tech}</h3><p>${r.definition}</p><p><b>Contoh</b><br>${r.example}</p><small>SP ${r.sp}</small></article>`).join('')}</div><div class="feedback"><b>Ringkasan Nilai Asas:</b><br>• Perduaan: 1, 2, 4, 8, 16, 32, 64, 128 (Asas 2)<br>• Storan: 1 Bait = 8 Bit | 1 KB = 1024 Bait | 1 MB = 1024 KB | 1 GB = 1024 MB<br>• Multimedia: Resolusi (piksel) & Kedalaman Bit menentukan ketajaman visual serta saiz fail.</div><div class="actions"><button class="primary" id="backBtn">Kembali ke pengembaraan</button></div>`,true);
  $('backBtn').onclick=close;
 }
 
 function help(){
  if(world3D)world3D.focusInteraction(null);
- open(`<span class="eyebrow">PANDUAN PENGEMBARA</span><h2 id="modalTitle">Cara bermain</h2><p>1. Masukkan nama dan mulakan langkah dari Pulau Permulaan.<br>2. <b>Gerakkan watak menggunakan WASD atau kekunci arah:</b> Anda kini boleh bergerak bebas di seluruh pulau dan <b>menyeberangi jambatan magis</b> ke pulau seterusnya.<br>3. Setiap jambatan dilindungi pintu tenaga magis yang akan terbuka sebaik sahaja misi pulau selesai.<br>4. Dekati penjaga ilmu dan tekan <b>[E]</b> atau butang Berinteraksi untuk memulakan cabaran.<br>5. Anda juga boleh klik pulau atau kad misi dalam menu untuk berpindah pantas.<br>6. Lengkapkan 4 kristal ilmu untuk membuka pintu istana dan menghadapi Raja Kabut!</p><div class="feedback">Jawapan betul kali pertama: 50 XP. Selepas petunjuk: 30 XP. Sijil tamat boleh dicetak selepas pertarungan akhir!</div><div class="actions"><button class="primary" id="backBtn">Kembali</button><button class="secondary" id="restartBtn">Mula semula</button></div>`);
+ open(`<span class="eyebrow">PANDUAN PENGEMBARA</span><h2 id="modalTitle">Cara Bermain</h2><p>1. <b>Navigasi Bebas 3D:</b> Gunakan kekunci <b>WASD</b> atau anak panah untuk berjalan di atas pulau dan menyeberangi jambatan magis.<br>2. <b>Dua Alam Pengembaraan:</b> Lengkapkan Bab 1 (4 pulau) untuk membuka pintu dimensi ke Alam 2 (3 pulau & Teras CyberByte).<br>3. <b>Pelbagai Jenis Puzzle:</b> Hadapi soalan pilihan, susunan urutan tertib, dan <b>Puzzle Padanan Berpasangan</b> (klik kad kiri & kanan untuk menyambungkannya).<br>4. <b>Interaksi Pantas:</b> Tekan <b>[E]</b> berdekatan penjaga ilmu untuk membuka dialog sinematik.<br>5. Cetak Sijil Pengiktirafan rasmi selepas memulihkan kedua-dua alam!</p><div class="feedback">Markah: 50 XP (jawapan tepat kali pertama) / 30 XP (selepas petunjuk).</div><div class="actions"><button class="primary" id="backBtn">Kembali</button><button class="secondary" id="restartBtn">Mula semula</button></div>`);
  $('backBtn').onclick=close;$('restartBtn').onclick=confirmReset;
 }
 
 function confirmReset(){
  if(world3D)world3D.focusInteraction(null);
- open(`<span class="eyebrow">PENGEMBARAAN BAHARU</span><h2 id="modalTitle">Mulakan semula?</h2><p>Nama, kristal dan XP permainan pada pelayar ini akan dipadam.</p><div class="actions"><button class="primary" id="resetYes">Ya, mula semula</button><button class="secondary" id="resetNo">Kembali</button></div>`);
+ open(`<span class="eyebrow">PENGEMBARAAN BAHARU</span><h2 id="modalTitle">Mulakan Semula?</h2><p>Semua nama, kristal dan XP permainan pada pelayar ini akan dipadam.</p><div class="actions"><button class="primary" id="resetYes">Ya, mula semula</button><button class="secondary" id="resetNo">Kembali</button></div>`);
  $('resetYes').onclick=()=>{state=fresh();resetNavigation();update();intro();};$('resetNo').onclick=help;
 }
 
 function result(){
  if(world3D)world3D.focusInteraction(null);
- open(`<span class="eyebrow no-print">PENGEMBARAAN SELESAI</span><h2 id="modalTitle" class="no-print">Nusa Logika kembali bercahaya!</h2><p class="no-print">${esc(state.name)}, anda telah memecahkan empat perisai Raja Kabut dan menyelesaikan 16 cabaran.</p><div class="result-stats no-print"><div><b>${state.xp}</b><small>Jumlah XP</small></div><div><b>${state.firstCorrect} / 16</b><small>Tepat kali pertama tanpa petunjuk</small></div><div><b>4 / 4</b><small>Kristal ilmu</small></div></div><div class="certificate"><span class="eyebrow">AKADEMI PENGEMBARA DIGITAL</span><h3>Pengembara Nusa Logika</h3><p>Diberikan kepada</p><h2>${esc(state.name)}</h2><p>Telah menamatkan pengembaraan ASK Tingkatan 1<br>Asas Pemikiran Komputasional</p><p>Leraian · Pengecaman Corak<br>Peniskalaan · Pengitlakan</p><small>Penghargaan permainan · ${state.xp} XP</small></div><div class="actions"><button class="primary" id="printBtn">Cetak sijil</button><button class="secondary" id="notesEnd">Nota ulang kaji</button><button class="secondary" id="backBtn">Kembali ke dunia</button></div>`,true);
+ const totalCompleted=state.completed.filter(Boolean).length;
+ open(`<span class="eyebrow no-print">PENGEMBARAAN SELESAI</span><h2 id="modalTitle" class="no-print">Nusa Logika & Alam Data Gemilang!</h2><p class="no-print">${esc(state.name)}, anda telah menewaskan Raja Kabut dan mengaktifkan Teras CyberByte!</p><div class="result-stats no-print"><div><b>${state.xp}</b><small>Jumlah XP</small></div><div><b>${state.firstCorrect}</b><small>Tepat Kali Pertama</small></div><div><b>${totalCompleted} / 7</b><small>Kristal Ilmu</small></div></div><div class="certificate"><span class="eyebrow">AKADEMI PENGEMBARA DIGITAL</span><h3>Pengembara Agung Nusa Logika</h3><p>Diberikan dengan bangganya kepada</p><h2>${esc(state.name)}</h2><p>Telah menamatkan pengembaraan ASK Tingkatan 1<br><b>Bab 1: Asas Pemikiran Komputasional &amp; Bab 2: Perwakilan Data</b></p><p>Leraian · Pengecaman Corak · Peniskalaan · Pengitlakan<br>Sistem Nombor Perduaan · Ukuran Data · Imej &amp; Audio Digital</p><small>Penghargaan Permainan Interaktif · ${state.xp} XP Diperoleh</small></div><div class="actions"><button class="primary" id="printBtn">Cetak Sijil</button><button class="secondary" id="notesEnd">Buku Ilmu</button><button class="secondary" id="backBtn">Kembali ke Dunia</button></div>`,true);
  $('printBtn').onclick=()=>window.print();$('notesEnd').onclick=notes;$('backBtn').onclick=close;
 }
 
 function nearest(){
  if(travel)return -1;
- if(currentIsland>=0&&currentIsland<=4)return currentIsland;
+ if(currentIsland>=0&&currentIsland<islandAreas.length&&currentIsland!==5)return currentIsland;
  return -1;
 }
 
@@ -332,7 +569,7 @@ function draw(now){
 
  if(world3D)world3D.render(phase,dt,target);
  const near=nearest();
- $('interactBtn').textContent=travel?'Sedang bergerak':near===4?'Masuk istana [E]':near>=0?'Temui '+regions[near].npc+' [E]':'Berinteraksi [E]';
+ $('interactBtn').textContent=travel?'Sedang bergerak':near===4?'Masuk istana [E]':near===9?'Cabar CyberByte [E]':near>=0?'Temui '+(islandToRegion[near]!==undefined?regions[islandToRegion[near]].npc:'Penjaga')+' [E]':'Berinteraksi [E]';
  requestAnimationFrame(draw);
 }
 
@@ -369,7 +606,7 @@ function initWorld3D(){
    bridgeUnlocked:bIdx=>bridgeUnlocked(bIdx),
    isModalOpen:()=>modalOpen||menuOpen,
    onDestination:p=>{walkTo(p);$('scene3d').focus();},
-   onVisit:i=>visit(i),
+   onVisit:i=>visitIsland(i),
    onLost:()=>show3DError('Sambungan WebGL terputus. Muat semula untuk membuka dunia 3D.')
   });
   if(world3D&&world3D.bridgePolylines){
@@ -378,7 +615,7 @@ function initWorld3D(){
   setWorldView(true);
  }catch(e){show3DError(e);}
 
- [['rotateLeft',()=>world3D.turn(-1)],['rotateRight',()=>world3D.turn(1)],['tiltUp',()=>world3D.tilt(1)],['tiltDown',()=>world3D.tilt(-1)],['zoomIn',()=>world3D.setZoom(.12)],['zoomOut',()=>world3D.setZoom(-.12)],['resetCamera',()=>world3D.reset()]].forEach(([id,act])=>$(id).onclick=()=>{if(world3D&&use3D){act();sfx('select');}});
+ [['rotateLeft',()=>world3D.turn(-1)],['rotateRight',()=>world3D.turn(1)],['tiltUp',()=>world3D.tilt(1)],['tiltDown',()=>world3D.tilt(-1)],['zoomIn',()=>world3D.setZoom(.14)],['zoomOut',()=>world3D.setZoom(-.14)],['resetCamera',()=>world3D.reset()]].forEach(([id,act])=>$(id).onclick=()=>{if(world3D&&use3D){act();sfx('select');}});
 }
 
 function resize(){if(world3D)world3D.resize();}
@@ -406,18 +643,27 @@ window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 window.addEventListener('blur',()=>{keys.clear();save();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();silenceSounds();save();}});
 
+$('menuToggle').onclick=()=>setDrawer(!menuOpen);
+$('closeDrawer').onclick=()=>setDrawer(false);
+$('drawerBackdrop').onclick=()=>setDrawer(false);
+$('cancelJourney').onclick=cancelTravel;
+$('interactBtn').onclick=interact;
+$('openNotes').onclick=notes;
+$('openHelp').onclick=help;
+
 document.querySelectorAll('[data-dir]').forEach(b=>{
- const k='arrow'+b.dataset.dir;
- b.addEventListener('pointerdown',e=>{e.preventDefault();if(travel||modalOpen||menuOpen)return;keys.add(k);b.setPointerCapture(e.pointerId);});
- ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>keys.delete(k)));
+ const dir=b.dataset.dir;
+ const send=down=>{
+  if(down)keys.add(dir==='up'?'arrowup':dir==='down'?'arrowdown':dir==='left'?'arrowleft':'arrowright');
+  else keys.delete(dir==='up'?'arrowup':dir==='down'?'arrowdown':dir==='left'?'arrowleft':'arrowright');
+ };
+ b.addEventListener('pointerdown',e=>{e.preventDefault();send(true);});
+ b.addEventListener('pointerup',()=>send(false));
+ b.addEventListener('pointerleave',()=>send(false));
+ b.addEventListener('pointercancel',()=>send(false));
 });
 
-$('notesBtn').onclick=notes;$('helpBtn').onclick=help;$('interactBtn').onclick=interact;$('soundBtn').onclick=toggleSound;
-function setDrawer(opened,focus=true){menuOpen=!!opened;keys.clear();if(world3D)world3D.cancelOrbit();$('sidePanel').hidden=!menuOpen;$('drawerBackdrop').hidden=!menuOpen;$('menuToggle').setAttribute('aria-expanded',String(menuOpen));if(focus)(menuOpen?$('menuClose'):$('menuToggle')).focus();}
-function drawerKeys(e){if(e.key==='Escape'){e.preventDefault();setDrawer(false);return;}if(e.key!=='Tab')return;const f=[...$('sidePanel').querySelectorAll('button:not([disabled]),a[href]')].filter(el=>el.offsetParent!==null);if(!f.length)return;const first=f[0],last=f[f.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
-function fullscreenUI(){const active=!!(document.fullscreenElement||document.webkitFullscreenElement);$('fullScreenBtn').textContent=active?'Keluar skrin penuh':'Skrin penuh';$('fullScreenBtn').setAttribute('aria-pressed',String(active));resize();}
-function toggleFullscreen(){const active=document.fullscreenElement||document.webkitFullscreenElement;const fn=active?(document.exitFullscreen||document.webkitExitFullscreen):($('gameFrame').requestFullscreen||$('gameFrame').webkitRequestFullscreen);if(!fn){toast('Permainan sudah memenuhi skrin pelayar.');return;}try{Promise.resolve(fn.call(active?document:$('gameFrame'))).then(()=>{setDrawer(false);fullscreenUI();}).catch(()=>toast('Skrin penuh tidak tersedia.'));}catch(e){toast('Permainan kekal memenuhi ruang pelayar.');}}
-$('menuToggle').onclick=()=>{setDrawer(!menuOpen);sfx('menu');};$('menuClose').onclick=()=>{setDrawer(false);sfx('menu');};$('drawerBackdrop').onclick=()=>setDrawer(false);$('fullScreenBtn').onclick=toggleFullscreen;document.addEventListener('fullscreenchange',fullscreenUI);document.addEventListener('webkitfullscreenchange',fullscreenUI);
-if(window.ResizeObserver){const observer=new ResizeObserver(()=>resize());observer.observe($('gameFrame'));}
-
-initWorld3D();update();requestAnimationFrame(draw);if(world3D&&!state.name)intro();
+initWorld3D();
+update();
+requestAnimationFrame(draw);
+if(!state.name)intro();

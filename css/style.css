@@ -694,6 +694,126 @@ input {
   color:var(--ink)
 }
 
+/* Puzzle Padanan Berpasangan (Matching Pairs) */
+.match-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.match-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.match-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.match-col-header {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #128a80;
+  padding: 0 4px;
+}
+
+.match-card {
+  border: 1.5px solid #d4e3dc;
+  background: white;
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.match-card:hover:not([disabled]) {
+  background: #f0faf5;
+  border-color: #07888d;
+  transform: translateY(-1px);
+}
+
+.match-card.active-select {
+  border-color: #00bcd4;
+  background: #e0f7fa;
+  box-shadow: 0 0 0 3px rgba(0, 188, 212, 0.25);
+  transform: scale(1.02);
+}
+
+.match-card.paired {
+  border-color: var(--pair-border, #10b981);
+  background: var(--pair-bg, #ecfdf5);
+  font-weight: 600;
+}
+
+.match-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: var(--pair-border, #10b981);
+  color: white;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.match-card.paired-0 { --pair-border: #0ea5e9; --pair-bg: #f0f9ff; }
+.match-card.paired-1 { --pair-border: #10b981; --pair-bg: #f0fdf4; }
+.match-card.paired-2 { --pair-border: #8b5cf6; --pair-bg: #f5f3ff; }
+.match-card.paired-3 { --pair-border: #f59e0b; --pair-bg: #fffbeb; }
+
+.match-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #486581;
+  background: #eef5f2;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.match-reset-btn {
+  background: none;
+  border: none;
+  color: #07888d;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: underline;
+}
+
+/* Pengepala Alam / Bab Kurikulum pada Menu */
+.realm-header {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #7296a6;
+  padding: 10px 4px 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+  margin-top: 10px;
+}
+.realm-header:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+
 .feedback {
   font-size:12px;
   padding:14px;

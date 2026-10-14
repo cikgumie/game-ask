@@ -137,7 +137,11 @@ function create(options){
        lake=island(islandAreas[2].x,islandAreas[2].y,islandAreas[2].r,0x3ccdb3,2),
        towerIsland=island(islandAreas[3].x,islandAreas[3].y,islandAreas[3].r,0x9555df,3),
        castle=island(islandAreas[4].x,islandAreas[4].y,islandAreas[4].r,0x718ee0,4),
-       spawn=island(islandAreas[5].x,islandAreas[5].y,islandAreas[5].r,0x48d273,5);
+       spawn=island(islandAreas[5].x,islandAreas[5].y,islandAreas[5].r,0x48d273,5),
+       binaryIsland=island(islandAreas[6].x,islandAreas[6].y,islandAreas[6].r,0x00d2ee,6),
+       byteValley=island(islandAreas[7].x,islandAreas[7].y,islandAreas[7].r,0xe91e63,7),
+       mediaBay=island(islandAreas[8].x,islandAreas[8].y,islandAreas[8].r,0x00c853,8),
+       cyberTower=island(islandAreas[9].x,islandAreas[9].y,islandAreas[9].r,0xffd600,9);
 
  function tree(g,x,z,s=1,pine=false){
   const group=new T.Group();group.position.set(x,0,z);group.scale.setScalar(s);g.add(group);
@@ -167,55 +171,81 @@ function create(options){
  }
 
  // Perhiasan Kampung Leraian (Pulau 0)
- house(village,-1.2,-2.1,1.4,0xf1662d);
- house(village,3.2,1.8,.95,0xffa63d);
- house(village,-3.4,1.5,.85,0x56a5e8);
+ house(village,-1.2,-2.1,1.4,0xf1662d);house(village,3.2,1.8,.95,0xffa63d);house(village,-3.4,1.5,.85,0x56a5e8);
  tree(village,-4.6,-1.2,1.1);tree(village,-4.2,2.8,.85);tree(village,4.4,-1.8,.95);tree(village,1.6,-4.4,1.0);tree(village,-2.2,4.6,.8);
- cyl(.65,.75,.4,8,0xdde6e5,village,0,.2,0);ring(.5,0x55d4ee,village,.21,.04); // Telaga kampung
+ cyl(.65,.75,.4,8,0xdde6e5,village,0,.2,0);ring(.5,0x55d4ee,village,.21,.04);
 
  // Perhiasan Hutan Corak (Pulau 1)
  [[-3.5,-1.8,1.2],[-2.8,-3.8,1.0],[2.8,-3.5,1.15],[4.4,.8,1.05],[-4.4,1.8,.95],[1.4,4.2,1.1],[-2.2,4.4,.9],[4.0,-1.5,.95]].forEach(([x,z,s])=>tree(forest,x,z,s,true));
- const forestStone=cyl(1.1,1.3,.38,8,0xc7e3a8,forest,0,.15,-.1);
- [-.7,0,.7].forEach((v,i)=>ball(.22,[0xffd778,0x78ffd4,0xc898ff][i],forest,v,.45,-.1));
+ cyl(1.1,1.3,.38,8,0xc7e3a8,forest,0,.15,-.1);[-.7,0,.7].forEach((v,i)=>ball(.22,[0xffd778,0x78ffd4,0xc898ff][i],forest,v,.45,-.1));
 
  // Perhiasan Tasik Peniskalaan (Pulau 2)
  const pond=cyl(2.7,2.7,.08,48,0x45bada,lake,.2,.02,-.2);
  pond.material=new T.MeshPhysicalMaterial({color:0x4ad7f4,roughness:.12,metalness:.25,transparent:true,opacity:.88});
  ring(2.0,0xc1f9ff,pond,.05,.028);ring(1.2,0xa2f3ff,pond,.07,.025);
- house(lake,-3.8,-1.2,.85,0x6ca7e8);
- box(1.8,.08,.6,0x9f7353,lake,-1.4,.08,-.2); // Jeti kayu tasik
+ house(lake,-3.8,-1.2,.85,0x6ca7e8);box(1.8,.08,.6,0x9f7353,lake,-1.4,.08,-.2);
  tree(lake,4.4,-1.8,1.1);tree(lake,3.2,-4.2,.95);tree(lake,-4.2,2.4,.9);tree(lake,4.2,2.2,1.0);tree(lake,-1.8,-4.6,.85);
  const boat=new T.Group();boat.position.set(.4,.1,-.1);lake.add(boat);
  cyl(.38,.29,.2,5,0xa07866,boat);const sail=mesh(new T.ConeGeometry(.55,1.1,3),0xffedd2,boat,0,.7,0);sail.rotation.z=-.4;anim.push({type:'boat',object:boat,base:.1});
 
  // Perhiasan Menara Pengitlakan (Pulau 3)
- tower(towerIsland,0,-1.4,1.35,0x7f39d4);
- tower(towerIsland,-3.1,.8,.85,0xa556ef);
- tower(towerIsland,3.1,.8,.9,0x5b36bd);
- cyl(.32,.32,1.6,6,0xded2f9,towerIsland,-1.9,.8,2.6);cyl(.32,.32,1.6,6,0xded2f9,towerIsland,1.9,.8,2.6); // Tiang akademi
+ tower(towerIsland,0,-1.4,1.35,0x7f39d4);tower(towerIsland,-3.1,.8,.85,0xa556ef);tower(towerIsland,3.1,.8,.9,0x5b36bd);
+ cyl(.32,.32,1.6,6,0xded2f9,towerIsland,-1.9,.8,2.6);cyl(.32,.32,1.6,6,0xded2f9,towerIsland,1.9,.8,2.6);
  tree(towerIsland,-4.2,-2.2,.95,true);tree(towerIsland,4.2,-2.2,.95,true);tree(towerIsland,-4.4,2.2,.8,true);tree(towerIsland,4.4,2.2,.8,true);
 
  // Perhiasan Istana Raja Kabut (Pulau 4)
  tower(castle,-2.5,-2.2,1.35,0x7940cc);tower(castle,2.5,-2.2,1.35,0x7940cc);
- box(3.8,3.0,2.4,0xcdd5ed,castle,0,1.5,-2.4);
- box(1.2,1.8,.2,0x483a65,castle,0,.9,-1.15); // Pintu gerbang istana
+ box(3.8,3.0,2.4,0xcdd5ed,castle,0,1.5,-2.4);box(1.2,1.8,.2,0x483a65,castle,0,.9,-1.15);
  cyl(0,2.6,1.7,4,0x8737d0,castle,0,3.85,-2.4).rotation.y=Math.PI/4;
  for(let i=0;i<5;i++)box(.36,.42,.42,0xe3eaff,castle,-1.5+i*.75,3.1,-1.1);
- box(1.8,1.6,1.4,0xb8c2df,castle,-4.1,.8,-2.2);box(1.8,1.6,1.4,0xb8c2df,castle,4.1,.8,-2.2); // Tembok sisi
+ box(1.8,1.6,1.4,0xb8c2df,castle,-4.1,.8,-2.2);box(1.8,1.6,1.4,0xb8c2df,castle,4.1,.8,-2.2);
 
  // Perhiasan Pulau Permulaan (Pulau 5)
  cyl(.28,.32,2.2,6,0xdfede8,spawn,-1.3,1.1,-.8);cyl(.28,.32,2.2,6,0xdfede8,spawn,1.3,1.1,-.8);
- box(3.0,.35,.5,0xdfede8,spawn,0,2.3,-.8);cyl(0,.9,.65,4,0x2bbba3,spawn,0,2.85,-.8).rotation.y=Math.PI/4; // Gerbang Kebangkitan
- ring(1.3,0x6ffbe4,spawn,.02,.035);
- tree(spawn,-2.3,1.6,.9);tree(spawn,2.3,1.6,.9);
+ box(3.0,.35,.5,0xdfede8,spawn,0,2.3,-.8);cyl(0,.9,.65,4,0x2bbba3,spawn,0,2.85,-.8).rotation.y=Math.PI/4;
+ ring(1.3,0x6ffbe4,spawn,.02,.035);tree(spawn,-2.3,1.6,.9);tree(spawn,2.3,1.6,.9);
 
- const colors=[0xffc662,0x66efb5,0x69d0ff,0xc49aff];
+ // === ALAM 2 PERHIASAN: PERWAKILAN DATA ===
+ // Pulau Bit & Perduaan (Pulau 6)
+ cyl(.32,.42,2.5,8,0x00d2ee,binaryIsland,-2.4,1.25,-1.6);
+ cyl(.32,.42,2.5,8,0x00d2ee,binaryIsland,2.4,1.25,-1.6);
+ box(1.3,.6,.4,0x112739,binaryIsland,-2.4,2.6,-1.6);box(1.3,.6,.4,0x112739,binaryIsland,2.4,2.6,-1.6);
+ ring(1.6,0x00f5ff,binaryIsland,.03,.035);
+ tree(binaryIsland,-3.8,1.8,1.0,true);tree(binaryIsland,3.8,1.8,1.0,true);tree(binaryIsland,-1.4,-3.8,.85,true);
+
+ // Lembah Ukuran Data (Pulau 7)
+ box(2.4,3.2,1.6,0x271038,byteValley,0,1.6,-2.0); // Menara Storan Server
+ box(2.1,.4,1.4,0xff007f,byteValley,0,1.8,-1.2).material=mat(0xff007f,.6);
+ cyl(.38,.38,2.0,10,0xff4081,byteValley,-2.8,1.0,1.2);cyl(.38,.38,2.0,10,0xff4081,byteValley,2.8,1.0,1.2);
+ ring(1.5,0xff007f,byteValley,.03,.035);
+ tree(byteValley,-4.0,-2.0,1.0,true);tree(byteValley,4.0,-2.0,1.0,true);
+
+ // Teluk Imej & Audio (Pulau 8)
+ box(1.0,1.0,1.0,0xff2a5f,mediaBay,-1.8,.5,-1.4); // Piksel Merah
+ box(1.0,1.0,1.0,0x00e676,mediaBay,-1.0,1.4,-1.4); // Piksel Hijau
+ box(1.0,1.0,1.0,0x00b0ff,mediaBay,-.2,.5,-1.4);  // Piksel Biru
+ cyl(.25,.25,1.4,8,0x76ff03,mediaBay,1.8,.7,-1.4);
+ cyl(.25,.25,2.4,8,0x76ff03,mediaBay,2.6,1.2,-1.4);
+ cyl(.25,.25,1.8,8,0x76ff03,mediaBay,3.4,.9,-1.4);
+ ring(1.6,0x00e676,mediaBay,.03,.035);
+ tree(mediaBay,-3.8,1.8,1.0);tree(mediaBay,3.8,1.8,1.0);
+
+ // Teras CyberByte (Pulau 9)
+ box(4.6,.5,4.6,0x3e3300,cyberTower,0,.25,-1.4);
+ box(3.2,.5,3.2,0x5c4d00,cyberTower,0,.75,-1.4);
+ box(2.0,.6,2.0,0x8a7400,cyberTower,0,1.3,-1.4);
+ cyl(0,1.3,1.6,4,0xffd600,cyberTower,0,2.4,-1.4).rotation.y=Math.PI/4;
+ ring(2.2,0xffd600,cyberTower,.03,.045);
+ cyl(.35,.4,2.2,6,0xffbe3b,cyberTower,-3.2,1.1,-1.4);cyl(.35,.4,2.2,6,0xffbe3b,cyberTower,3.2,1.1,-1.4);
+
+ const colors=[0xffc662,0x66efb5,0x69d0ff,0xc49aff,0xd4b5ff,0x5eead4,0x00d2ee,0xff007f,0x00c853,0xffd600];
  function crystal(g,color,index,x=0,z=0){
   const c=new T.Group();c.position.set(x,2.7,z);g.add(c);
   const core=mesh(new T.OctahedronGeometry(.65),color,c,0,0,0,.35);core.scale.y=1.65;
   const haloMesh=halo(c,color,3.1,0);const orbit=ring(.96,color,c,-.15,.025);orbit.rotation.x=1.13;
   anim.push({type:'crystal',object:c,base:2.7,index,core,halo:haloMesh});return c;
  }
+
  [village,forest,lake,towerIsland].forEach((g,i)=>{
   crystal(g,colors[i],i,0,1.9);
   const portal=new T.Mesh(new T.TorusGeometry(.65,.08,8,40),mat(colors[i],.65));
@@ -223,6 +253,16 @@ function create(options){
   anim.push({type:'portal',object:portal,index:i});
  });
  castleCrystal=crystal(castle,0xd4b5ff,4,0,-1.4);castleCrystal.position.y=5.6;anim[anim.length-1].base=5.6;
+
+ // Kristal & Portal Alam 2
+ [binaryIsland,byteValley,mediaBay].forEach((g,i)=>{
+  const idx=i+4;
+  crystal(g,colors[idx+2],idx,0,1.9);
+  const portal=new T.Mesh(new T.TorusGeometry(.65,.08,8,40),mat(colors[idx+2],.65));
+  portal.position.set(1.9,.9,1.6);g.add(portal);halo(portal,colors[idx+2],1.7,0);
+  anim.push({type:'portal',object:portal,index:idx});
+ });
+ const cyberCrystal=crystal(cyberTower,0xffd600,7,0,-1.4);cyberCrystal.position.y=5.0;anim[anim.length-1].base=5.0;
 
  function character(g,x,z,color,isHero=false){
   const person=new T.Group();person.position.set(x,0,z);g.add(person);
@@ -239,45 +279,85 @@ function create(options){
   return person;
  }
 
- const npcs=[];
+ const npcs=new Array(10).fill(null);
  const npcIcons=['🔨','🏹','🛶','📜'];
  const npcColors=['#ffd27b','#78ffd4','#70d6ff','#d8b4fe'];
+
+ // Penjaga Ilmu Alam 1
  [village,forest,lake,towerIsland].forEach((g,i)=>{
   const p=character(g,0,1.1,colors[i]);
-  npcs.push(p);
+  npcs[i]=p;
   label(npcIcons[i]+' '+options.regions[i].npc,p,2.15,npcColors[i],true,'',0);
   const m=mesh(new T.OctahedronGeometry(.19),0xffd27b,g,0,2.05,1.1,.45);
+  m.userData={islandIndex:i,baseY:2.05};
   markers.push(m);
  });
- // Bos Raja Kabut (MVP) di Pulau Istana
+
+ // Bos Raja Kabut (MVP Bab 1)
  const boss=character(castle,0,0.6,0x3d1a5e);
  boss.scale.setScalar(1.65);
  cyl(0,.36,.35,5,0xffbe3b,boss,0,1.62);
  box(.58,.96,.08,0x1d0f33,boss,0,.78,-.26);
  halo(boss,0x9d4edd,2.4,0.05);
- npcs.push(boss);
+ npcs[4]=boss;
  label('👑 Raja Kabut',boss,2.65,'#ff4370',true,'',0);
  const bossMarker=mesh(new T.OctahedronGeometry(.24),0xff4370,castle,0,2.5,0.6,.45);
+ bossMarker.userData={islandIndex:4,baseY:2.5};
  markers.push(bossMarker);
+
+ // Penjaga Ilmu Alam 2
+ // Pulau 6: Bitara
+ const bitara=character(binaryIsland,0,1.1,0x00bcd4);
+ cyl(0,.28,.26,6,0x00e5ff,bitara,0,1.55);
+ npcs[6]=bitara;
+ label('💾 Bitara',bitara,2.2,'#00e5ff',true,'',0);
+ const mBitara=mesh(new T.OctahedronGeometry(.19),0x00e5ff,binaryIsland,0,2.1,1.1,.45);
+ mBitara.userData={islandIndex:6,baseY:2.1};
+ markers.push(mBitara);
+
+ // Pulau 7: Baitah
+ const baitah=character(byteValley,0,1.1,0xe91e63);
+ cyl(0,.28,.24,4,0xff4081,baitah,0,1.55);
+ npcs[7]=baitah;
+ label('📦 Baitah',baitah,2.2,'#ff4081',true,'',0);
+ const mBaitah=mesh(new T.OctahedronGeometry(.19),0xff4081,byteValley,0,2.1,1.1,.45);
+ mBaitah.userData={islandIndex:7,baseY:2.1};
+ markers.push(mBaitah);
+
+ // Pulau 8: Piksela
+ const piksela=character(mediaBay,0,1.1,0x00c853);
+ box(.55,.15,.2,0x76ff03,piksela,0,1.45);
+ npcs[8]=piksela;
+ label('🎨 Piksela',piksela,2.2,'#00e676',true,'',0);
+ const mPiksela=mesh(new T.OctahedronGeometry(.19),0x00e676,mediaBay,0,2.1,1.1,.45);
+ mPiksela.userData={islandIndex:8,baseY:2.1};
+ markers.push(mPiksela);
+
+ // Pulau 9: CyberByte (Bos Bab 2)
+ const cyberBoss=character(cyberTower,0,0.6,0x544000);
+ cyberBoss.scale.setScalar(1.75);
+ cyl(0,.42,.38,6,0xffd600,cyberBoss,0,1.65);
+ box(.65,1.05,.09,0x221a00,cyberBoss,0,.85,-.28);
+ halo(cyberBoss,0xffd600,2.8,0.05);
+ npcs[9]=cyberBoss;
+ label('⚡ CyberByte',cyberBoss,2.85,'#ffd600',true,'',0);
+ const mCyber=mesh(new T.OctahedronGeometry(.26),0xffd600,cyberTower,0,2.7,0.6,.45);
+ mCyber.userData={islandIndex:9,baseY:2.7};
+ markers.push(mCyber);
 
  hero=character(scene,0,0,0x1eccc1,true);hero.scale.setScalar(1.55);
 
- const techs=options.regions.map(r=>r.tech);
- const names=options.regions.map(r=>r.name);
- const islandColors=['#ffd294','#a3f6cc','#b0e8ff','#e2c5ff'];
-
- const islandBanners=[
-  {y:4.3,color:'#FFB300',tech:'Teknik Leraian',z:-0.2},
-  {y:4.3,color:'#00E676',tech:'Pengecaman Corak',z:-0.2},
-  {y:4.3,color:'#00B0FF',tech:'Teknik Peniskalaan',z:-0.2},
-  {y:4.5,color:'#D500F9',tech:'Teknik Pengitlakan',z:-0.2}
- ];
-
- [village,forest,lake,towerIsland].forEach((g,i)=>{
-  label(names[i],g,islandBanners[i].y,islandBanners[i].color,false,islandBanners[i].tech,islandBanners[i].z);
- });
- label('Istana Raja Kabut',castle,5.2,'#FF4081',false,'Pertarungan Akhir',-0.5);
+ // Papan Tanda Banners Terapung Berdefinisi Tinggi
+ label('Kampung Leraian',village,4.3,'#FFB300',false,'Teknik Leraian',-0.2);
+ label('Hutan Corak',forest,4.3,'#00E676',false,'Pengecaman Corak',-0.2);
+ label('Tasik Peniskalaan',lake,4.3,'#00B0FF',false,'Teknik Peniskalaan',-0.2);
+ label('Menara Pengitlakan',towerIsland,4.5,'#D500F9',false,'Teknik Pengitlakan',-0.2);
+ label('Istana Raja Kabut',castle,5.2,'#FF4081',false,'Pertarungan Akhir Bab 1',-0.5);
  label('Pulau Permulaan',spawn,3.8,'#00E5FF',false,'Titik Mula',0);
+ label('Pulau Bit & Perduaan',binaryIsland,4.4,'#00E5FF',false,'Sistem Nombor Perduaan',-0.2);
+ label('Lembah Ukuran Data',byteValley,4.4,'#FF007F',false,'Ukuran Data & Storan',-0.2);
+ label('Teluk Imej & Audio',mediaBay,4.5,'#00E676',false,'Multimedia Digital',-0.2);
+ label('Teras CyberByte',cyberTower,5.3,'#FFD600',false,'Pertarungan Akhir Bab 2',-0.5);
  label('⭐ Anda',hero,2.35,'#5EEAD4',true,'',0);
 
  // Pembinaan Jambatan Terapung & Gerbang Kuasa Magis
@@ -310,8 +390,8 @@ function create(options){
    }
   }
 
-  // Pintu gerbang tenaga magis untuk jambatan yang belum dibuka
-  if(i<4){
+  // Pintu gerbang tenaga magis untuk jambatan yang boleh dikunci
+  if(i!==4){
    const barrierT=.45,barrierPt=curve.getPoint(barrierT),tangent=curve.getTangent(barrierT);
    const bGroup=new T.Group();bGroup.position.set(barrierPt.x,0,barrierPt.z);
    bGroup.rotation.y=-Math.atan2(tangent.z,tangent.x);scene.add(bGroup);
@@ -324,7 +404,7 @@ function create(options){
   }
  });
 
- const fireGeo=new T.BufferGeometry(),firePos=[];for(let i=0;i<70;i++)firePos.push(Math.sin(i*17)*20,.5+(i%6)*.4,Math.cos(i*13)*10);
+ const fireGeo=new T.BufferGeometry(),firePos=[];for(let i=0;i<100;i++)firePos.push(Math.sin(i*17)*35,.5+(i%6)*.4,Math.cos(i*13)*18);
  fireGeo.setAttribute('position',new T.Float32BufferAttribute(firePos,3));
  const fireflies=new T.Points(fireGeo,new T.PointsMaterial({color:0xa0ffe5,size:.085,transparent:true,opacity:.7}));scene.add(fireflies);
  const destinationRing=new T.Mesh(new T.RingGeometry(.28,.38,32),new T.MeshBasicMaterial({color:0xaffff2,side:T.DoubleSide,transparent:true,opacity:.9}));
@@ -349,14 +429,28 @@ function create(options){
  function orbit(dx,dy){yaw-=dx*.006;pitch=Math.max(-1.05,Math.min(1.46,pitch+dy*.006));positionCamera();}
  function turn(direction){yaw+=direction*.3;positionCamera();}
  function tilt(direction){pitch=Math.max(-1.05,Math.min(1.46,pitch+direction*.16));positionCamera();}
- function setZoom(delta){targetZoom=Math.max(.65,Math.min(3.4,targetZoom+delta));}
- function reset(){cancelOrbit();yaw=0;pitch=initialPitch;targetZoom=1;targetLook.copy(defaultLook);focusInteraction(null);}
+ function setZoom(delta){targetZoom=Math.max(.45,Math.min(3.4,targetZoom+delta));}
+ function reset(){
+  cancelOrbit();yaw=0;pitch=initialPitch;targetZoom=1;
+  const s=getState();
+  if(s&&s.hero&&s.hero.x>1100){
+   targetLook.copy(coords(1620,480));
+  }else{
+   targetLook.copy(defaultLook);
+  }
+  focusInteraction(null);
+ }
 
  function focusInteraction(islandIndex){
-  if(islandIndex===null||islandIndex===undefined||islandIndex<0||islandIndex>4){
-   targetLook.copy(defaultLook);
+  if(islandIndex===null||islandIndex===undefined||islandIndex<0||islandIndex>=islandAreas.length){
+   const s=getState();
+   if(s&&s.hero&&s.hero.x>1100){
+    targetLook.copy(coords(1620,480));
+   }else{
+    targetLook.copy(defaultLook);
+   }
    targetZoom=1.0;
-   npcs.forEach(n=>n.rotation.y=0);
+   npcs.forEach(n=>{if(n)n.rotation.y=0;});
    return;
   }
 
@@ -387,7 +481,7 @@ function create(options){
   const rect=canvas.getBoundingClientRect();pointer.set((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1);
   ray.setFromCamera(pointer,camera);const regionsHit=ray.intersectObjects(pickables,false);
   if(regionsHit.length){onVisit(regionsHit[0].object.userData.region);return;}
-  if(ray.ray.intersectPlane(plane,hit)){onDestination({x:Math.max(40,Math.min(1060,hit.x*WORLD_SCALE+550)),y:Math.max(40,Math.min(620,hit.z*WORLD_SCALE+330))});}
+  if(ray.ray.intersectPlane(plane,hit)){onDestination({x:Math.max(40,Math.min(2100,hit.x*WORLD_SCALE+550)),y:Math.max(40,Math.min(850,hit.z*WORLD_SCALE+330))});}
  }
 
  const pointers=new Map();let pinchDistance=0;canvas.style.cursor='grab';
@@ -413,22 +507,40 @@ function create(options){
   anim.forEach((a,i)=>{
    if(a.type==='crystal'){
     a.object.rotation.y=reduced?0:time*.7;a.object.position.y=a.base+(reduced?0:Math.sin(time*1.7+i)*.2);
-    const done=a.index<4?s.completed[a.index]:s.bossDone;
-    const available=a.index===0||a.index<4&&s.completed[a.index-1]||a.index===4&&s.completed.every(Boolean);
+    const done = a.index < 4 ? s.completed[a.index] : a.index === 4 ? s.bossDone : a.index <= 6 ? s.completed[a.index] : s.cyberBossDone;
+    const available = a.index === 0 || (a.index < 4 && s.completed[a.index-1]) || (a.index === 4 && s.completed.slice(0,4).every(Boolean)) || (a.index === 5 && s.bossDone) || (a.index === 6 && s.completed[4]) || (a.index === 7 && s.completed.slice(4,7).every(Boolean));
     a.core.material.emissiveIntensity=done?.85:available?.35:.06;a.halo.material.opacity=done?1:available?.75:.15;
    }else if(a.type==='portal'){a.object.rotation.z=reduced?0:Math.sin(time*.5)*.08;}
    else if(a.type==='boat'){a.object.position.y=a.base+(reduced?0:Math.sin(time*1.3)*.045);}
    else if(a.type==='banner'){a.object.position.y=a.base+(reduced?0:Math.sin(time*1.6+i)*.12);}
   });
 
-  markers.forEach((m,i)=>{
-   const done=i<4?s.completed[i]:s.bossDone;
-   const ready=i===0||(i<4?s.completed[i-1]:s.completed.every(Boolean));
-   m.visible=!done&&ready;
-   m.rotation.y=reduced?0:time;
-   m.position.y=(i===4?2.5:2.08)+(reduced?0:Math.sin(time*2.2)*.12);
+  markers.forEach(m=>{
+   const i=m.userData?.islandIndex;
+   let active=false;
+   if(i===0) active=!s.completed[0];
+   else if(i<=3) active=!s.completed[i]&&s.completed[i-1];
+   else if(i===4) active=!s.bossDone&&s.completed.slice(0,4).every(Boolean);
+   else if(i===6) active=s.bossDone&&!s.completed[4];
+   else if(i===7) active=s.completed[4]&&!s.completed[5];
+   else if(i===8) active=s.completed[5]&&!s.completed[6];
+   else if(i===9) active=!s.cyberBossDone&&s.completed.slice(4,7).every(Boolean);
+   m.visible=active;
+   m.rotation.y=reduced?0:time*1.5;
+   m.position.y=(m.userData?.baseY||2.1)+(reduced?0:Math.sin(time*2.2+(i||0))*.12);
   });
-  islands.forEach(a=>{const done=a.index<4?s.completed[a.index]:a.index===4?s.bossDone:false;a.ring.material.opacity=done?.9:.24;});
+
+  islands.forEach(a=>{
+   let done=false;
+   if(a.index<4) done=s.completed[a.index];
+   else if(a.index===4) done=s.bossDone;
+   else if(a.index===5) done=true;
+   else if(a.index===6) done=s.completed[4];
+   else if(a.index===7) done=s.completed[5];
+   else if(a.index===8) done=s.completed[6];
+   else if(a.index===9) done=s.cyberBossDone;
+   a.ring.material.opacity=done?.9:.24;
+  });
   castleCrystal.children[0].material.color.set(s.bossDone?0xffd271:0xc39cf2);
 
   // Kemas kini pintu gerbang magis pada jambatan yang terkunci
