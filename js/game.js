@@ -6,6 +6,8 @@
 'use strict';
 
 const $=id=>document.getElementById(id), KEY='nusa-logika-v2';
+const canvas=$('scene3d'), reduced=typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function fresh(){
  return {
@@ -190,22 +192,24 @@ function advanceTravel(dt){
  if(t>=1){currentIsland=trip.index;state.hero=trip.to;travel=null;heroLift=0;target=null;keys.clear();journeyUI();save();sfx('select');showVisit(trip.index);}
 }
 
-function setDrawer(open,withFocus=true){
- menuOpen=open;
- const d=$('drawer');d.classList.toggle('open',open);$('menuToggle').setAttribute('aria-expanded',String(open));$('menuToggle').setAttribute('aria-label',open?'Tutup menu':'Buka menu pengembara');
- if(open){cancelTravel();if(withFocus)$('closeDrawer').focus();}
- else if(withFocus&&lastFocus&&lastFocus.isConnected)lastFocus.focus();
+function setDrawer(opened,focus=true){
+ menuOpen=!!opened;
+ keys.clear();
+ if(world3D)world3D.cancelOrbit();
+ $('sidePanel').hidden=!menuOpen;
+ $('drawerBackdrop').hidden=!menuOpen;
+ $('menuToggle').setAttribute('aria-expanded',String(menuOpen));
+ if(focus)(menuOpen?$('menuClose'):$('menuToggle')).focus();
 }
 
 function drawerKeys(e){
- if(e.key==='Escape'){setDrawer(false);return;}
- if(e.key==='Tab'){
-  const f=[...$('drawer').querySelectorAll('button')].filter(el=>el.offsetParent!==null);
-  if(!f.length)return;
-  const first=f[0],last=f[f.length-1];
-  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
-  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
- }
+ if(e.key==='Escape'){e.preventDefault();setDrawer(false);return;}
+ if(e.key!=='Tab')return;
+ const f=[...$('sidePanel').querySelectorAll('button:not([disabled]),a[href]')].filter(el=>el.offsetParent!==null);
+ if(!f.length)return;
+ const first=f[0],last=f[f.length-1];
+ if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+ else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
 }
 
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){storageOK=false;}$('saveStatus').textContent=storageOK?'Kemajuan disimpan pada pelayar ini':'Simpanan pelayar tidak tersedia; kekalkan tab ini';}
@@ -643,13 +647,39 @@ window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 window.addEventListener('blur',()=>{keys.clear();save();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){keys.clear();silenceSounds();save();}});
 
-$('menuToggle').onclick=()=>setDrawer(!menuOpen);
-$('closeDrawer').onclick=()=>setDrawer(false);
+function fullscreenUI(){
+ const active=!!(document.fullscreenElement||document.webkitFullscreenElement);
+ const btn=$('fullScreenBtn');
+ if(btn){
+  btn.textContent=active?'Keluar skrin penuh':'Skrin penuh';
+  btn.setAttribute('aria-pressed',String(active));
+ }
+ resize();
+}
+
+function toggleFullscreen(){
+ const active=document.fullscreenElement||document.webkitFullscreenElement;
+ const fn=active?(document.exitFullscreen||document.webkitExitFullscreen):($('gameFrame').requestFullscreen||$('gameFrame').webkitRequestFullscreen);
+ if(!fn){toast('Permainan sudah memenuhi skrin pelayar.');return;}
+ try{
+  Promise.resolve(fn.call(active?document:$('gameFrame'))).then(()=>{setDrawer(false);fullscreenUI();}).catch(()=>toast('Skrin penuh tidak tersedia.'));
+ }catch(e){toast('Permainan kekal memenuhi ruang pelayar.');}
+}
+
+$('menuToggle').onclick=()=>{setDrawer(!menuOpen);sfx('menu');};
+$('menuClose').onclick=()=>{setDrawer(false);sfx('menu');};
 $('drawerBackdrop').onclick=()=>setDrawer(false);
-$('cancelJourney').onclick=cancelTravel;
+$('notesBtn').onclick=notes;
+$('helpBtn').onclick=help;
 $('interactBtn').onclick=interact;
-$('openNotes').onclick=notes;
-$('openHelp').onclick=help;
+$('soundBtn').onclick=()=>window.toggleSound();
+$('fullScreenBtn').onclick=toggleFullscreen;
+document.addEventListener('fullscreenchange',fullscreenUI);
+document.addEventListener('webkitfullscreenchange',fullscreenUI);
+if(window.ResizeObserver){
+ const observer=new ResizeObserver(()=>resize());
+ observer.observe($('gameFrame'));
+}
 
 document.querySelectorAll('[data-dir]').forEach(b=>{
  const dir=b.dataset.dir;
